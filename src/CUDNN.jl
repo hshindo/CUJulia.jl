@@ -43,6 +43,7 @@ export
     cudnnSoftmaxForward, cudnnSoftmaxBackward
 
 export CUDNN_ACTIVATION_SIGMOID, CUDNN_ACTIVATION_RELU, CUDNN_ACTIVATION_TANH, CUDNN_ACTIVATION_CLIPPED_RELU
+export CUDNN_CONVOLUTION, CUDNN_CROSS_CORRELATION
 export CUDNN_SOFTMAX_MODE_INSTANCE, CUDNN_SOFTMAX_MODE_CHANNEL # mode
 export CUDNN_SOFTMAX_FAST, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_LOG # algorithm
 
@@ -84,12 +85,52 @@ end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::ActivationDesc) = desc.ptr
 
-#include("batchnorm.jl")
-#include("convolution.jl")
-#include("dropout.jl")
-##include("lrn.jl")
-#include("pooling.jl")
-#include("softmax.jl")
-##include("rnn.jl")
+type ConvDesc
+    ptr::Ptr{Void}
+end
+
+function ConvDesc{T,N}(::Type{T}, pads::NTuple{N,Int}, strides; mode=CUDNN_CROSS_CORRELATION)
+    p = Ptr{Void}[0]
+    cudnnCreateConvolutionDescriptor(p)
+    c_pads = Cint[pads[i] for i=N:-1:1]
+    c_strides = Cint[strides[i] for i=N:-1:1]
+    c_upscale = fill(Cint(1), N)
+    cudnnSetConvolutionNdDescriptor(p[1], N, c_pads, c_strides, c_upscale, mode, datatype(T))
+    desc = new(p[1])
+    finalizer(desc, cudnnDestroyConvolutionDescriptor)
+    desc
+end
+
+Base.unsafe_convert(::Type{Ptr{Void}}, desc::ConvDesc) = desc.ptr
+
+type DropoutDesc
+    ptr::Ptr{Void}
+end
+
+function DropoutDesc()
+    p = Ptr{Void}[0]
+    cudnnCreateDropoutDescriptor(p)
+    desc = new(p[1])
+    finalizer(desc, cudnnDestroyDropoutDescriptor)
+    desc
+end
+
+Base.unsafe_convert(::Type{Ptr{Void}}, desc::DropoutDesc) = desc.ptr
+
+type FilterDesc
+    ptr::Ptr{Void}
+end
+
+function FilterDesc{T,N}(x::CuArray{T,N})
+    csize = Cint[size(x,i) for i=N:-1:1]
+    p = Ptr{Void}[0]
+    cudnnCreateFilterDescriptor(p)
+    cudnnSetFilterNdDescriptor(p[1], datatype(T), format, N, csize)
+    desc = new(p[1])
+    finalizer(desc, cudnnDestroyFilterDescriptor)
+    desc
+end
+
+Base.unsafe_convert(::Type{Ptr{Void}}, desc::FilterDesc) = desc.ptr
 
 end
