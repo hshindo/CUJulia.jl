@@ -79,7 +79,6 @@ box(t::NTuple{1,Int}) = Cint(t[1])
 box(t::NTuple{2,Int}) = Cint2(t[1],t[2])
 box(t::NTuple{3,Int}) = Cint3(t[1],t[2],t[3])
 box(t::NTuple{4,Int}) = Cint4(t[1],t[2],t[3],t[4])
-box{T}(a::CuArray{T}) = CUArray(Ptr{T}(a.ptr), box(size(a)))
 
 function (f::CuFunction)(args...;
     dx=1, dy=1, dz=1, bx=128, by=1, bz=1, sharedmem=0, stream=C_NULL)

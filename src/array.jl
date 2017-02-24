@@ -106,3 +106,5 @@ end
 
 Base.getindex(x::CuArray, indexes...) = CuArray(view(x,indexes))
 Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...) = copy!(view(y,indexes),x)
+
+box{T}(a::CuArray{T}) = CUArray(Ptr{T}(a.ptr), box(size(a)))

@@ -27,6 +27,7 @@ include("../lib/$(major).$(minor)/libcuda.jl")
 include("../lib/$(major).$(minor)/libcuda_types.jl")
 
 include("device.jl")
+include("function.jl")
 include("headers.jl")
 
 initctx()
@@ -40,8 +41,7 @@ include("pointer.jl")
 include("array.jl")
 include("math.jl")
 include("broadcast.jl")
-
-include("function.jl")
+include("reducedim.jl")
 
 include("NVRTC.jl")
 include("CUBLAS.jl")
