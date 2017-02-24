@@ -4,7 +4,7 @@ function reducedim_f{T}(::Type{T}, op::String)
     blocksize = 1024
     CuFunction("""
     __global__ void reduce(Array<$T,3> x, Array<$T,3> y) {
-        static __shared__ $T sdata[1024];
+        static __shared__ $T temp[1024];
 
         int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
         //int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -13,26 +13,41 @@ function reducedim_f{T}(::Type{T}, op::String)
 
         int tid = threadIdx.y;
         int idx_y = blockIdx.y * $blocksize * 2 + threadIdx.y;
-        $T mySum = (idx_y < x.dims[1]) ? x(idx_x, idx_y, idx_z) : 0;
-        if (idx_y+$blocksize < x.dims[1]) mySum += x[idx_y+$blocksize];
+        $T a = (idx_y < x.dims[1]) ? x(idx_x, idx_y, idx_z) : 0;
+        if (idx_y+$blocksize < x.dims[1]) {
+            a += x[idx_y+$blocksize];
+        }
 
-        sdata[tid] = mySum;
+        temp[tid] = a;
         __syncthreads();
 
-        if (($blocksize >= 512) && (tid < 256)) sdata[tid] = mySum = mySum + sdata[tid+256];
-        __syncthreads();
-        if (($blocksize >= 256) &&(tid < 128)) sdata[tid] = mySum = mySum + sdata[tid+128];
-        __syncthreads();
-        if (($blocksize >= 128) && (tid <  64)) sdata[tid] = mySum = mySum + sdata[tid+64];
-        __syncthreads();
+        if (($blocksize >= 512) && (tid < 256)) {
+            b = temp[tid+256];
+            a = $op;
+            temp[tid] = a;
+            __syncthreads();
+        }
+        if (($blocksize >= 256) &&(tid < 128)) {
+            b = temp[tid+128];
+            a = $op;
+            temp[tid] = a;
+            __syncthreads();
+        }
+        if (($blocksize >= 128) && (tid < 64)) {
+            b = temp[tid+64];
+            a = $op;
+            temp[tid] = a;
+            __syncthreads();
+        }
 
         if (tid < 32) {
-            if ($blocksize >= 64) mySum += sdata[tid+32];
-            for (int offset = warpSize/2; offset > 0; offset /= 2) mySum += __shfl_down(mySum, offset);
+            if ($blocksize >= 64) a += temp[tid+32];
+            for (int offset = warpSize/2; offset > 0; offset /= 2) {
+                a += __shfl_down(a, offset);
+            }
         }
-        if (threadIdx.y == 0) y(blockIdx.x, blockIdx.y, blockIdx.z) = mySum;
-    }
-    """)
+        if (threadIdx.y == 0) y(blockIdx.x, blockIdx.y, blockIdx.z) = a;
+    }""")
 end
 
 function reducedim_f2{T}(::Type{T}, op::String)
