@@ -34,8 +34,10 @@ end
 
 function CuFunction(code::String)
     code = replace(code, "Float32", "float")
-    code = replace(code, "Int", "int")
+    code = replace(code, "Float64", "double")
+    code = replace(code, "Int32", "int")
     contains(code, "Array<") && (code = "$array_h\n$code")
+    contains(code, "Ranges<") && (code = "$range_h\n$code")
 
     ptx = NVRTC.compile(code)
     p = Ptr{Void}[0]
@@ -52,6 +54,7 @@ function CuFunction(code::String)
     CuFunction(mod, fnames[1])
 end
 
+#=
 immutable Cint2
     i1::Cint
     i2::Cint
@@ -67,6 +70,7 @@ immutable Cint4
     i3::Cint
     i4::Cint
 end
+=#
 
 immutable CUArray{T,N}
     ptr::Ptr{T}
@@ -75,10 +79,8 @@ end
 
 box(x) = x
 box(x::Int) = Cint(x)
-box(t::NTuple{1,Int}) = Cint(t[1])
-box(t::NTuple{2,Int}) = Cint2(t[1],t[2])
-box(t::NTuple{3,Int}) = Cint3(t[1],t[2],t[3])
-box(t::NTuple{4,Int}) = Cint4(t[1],t[2],t[3],t[4])
+box{N}(t::NTuple{N,Int}) = map(Cint, t)
+box(x::Vector{Int}) = ntuple(i -> Cint(x[i]), length(x))
 
 function (f::CuFunction)(args...;
     dx=1, dy=1, dz=1, bx=128, by=1, bz=1, sharedmem=0, stream=C_NULL)

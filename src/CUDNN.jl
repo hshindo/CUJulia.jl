@@ -3,7 +3,7 @@ module CUDNN
 using ..CUJulia
 
 if is_windows()
-    const libcudnn = Libdl.find_library(["cudnn64_5","cudnn64_4"])
+    const libcudnn = Libdl.find_library(["cudnn64_5"])
 else
     const libcudnn = Libdl.find_library(["libcudnn"])
 end

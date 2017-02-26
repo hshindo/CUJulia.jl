@@ -87,6 +87,24 @@ function axpy!{T}(alpha::T, x::CuArray{T}, rx::Range{Int}, y::CuArray{T}, ry::Ra
 end
 
 ##### level2 #####
+for (fname, elty) in ((:cublasDgemv,:Float64), (:cublasSgemv,:Float32))
+    @eval begin
+        function gemv!(tA::Char, alpha::$elty, A::CuMatrix{$elty}, x::CuVector{$elty},
+            beta::$elty, Y::CuVector{$elty})
+
+            @assert device(A) == device(x) == device(Y)
+            m, n = size(A)
+            length(x) == (tA == 'N' ? n : m) && length(Y) == (tA == 'N' ? m : n) || throw(DimensionMismatch(""))
+            $fname(handle(Y), cublasop(tA), m, n,
+                $elty[alpha], A, stride(A,2), x, stride(x,1), $elty[beta], Y, stride(Y,1))
+            Y
+        end
+    end
+end
+function gemv{T}(tA::Char, alpha::T, A::CuMatrix{T}, x::CuVector{T})
+    Y = similar(A, size(A, tA=='N' ? 1 : 2))
+    gemv!(tA, alpha, A, x, T(0), Y)
+end
 
 ##### level3 #####
 for (fname, elty) in ((:cublasDgemm,:Float64), (:cublasSgemm,:Float32))
@@ -112,8 +130,8 @@ function gemm{T}(tA::Char, tB::Char, alpha::T, A::CuVecOrMat{T}, B::CuVecOrMat{T
     C = similar(B, size(A, tA=='N' ? 1 : 2), size(B, tB=='N' ? 2 : 1))
     gemm!(tA, tB, alpha, A, B, T(0), C)
 end
-gemm{T}(tA::Char, tB::Char, A::CuVecOrMat{T}, B::CuVecOrMat{T}) = gemm(tA, tB, T(1), A, B)
-gemm{T}(A::CuVecOrMat{T}, B::CuVecOrMat{T}; tA='N', tB='N', alpha=1) = gemm(tA, tB, T(alpha), A, B)
+#gemm{T}(tA::Char, tB::Char, A::CuVecOrMat{T}, B::CuVecOrMat{T}) = gemm(tA, tB, T(1), A, B)
+#gemm{T}(A::CuVecOrMat{T}, B::CuVecOrMat{T}; tA='N', tB='N', alpha=1) = gemm(tA, tB, T(alpha), A, B)
 
 for (fname,elty) in ((:cublasDgemmBatched,:Float64), (:cublasSgemmBatched,:Float32))
     @eval begin
@@ -157,5 +175,8 @@ function gemm_batched{T}(tA::Char, tB::Char,
     A::Vector{CuVecOrMat{T}}, B::Vector{CuVecOrMat{T}})
     gemm_batched(tA, tB, T(1), A, B)
 end
+
+##### BLAS-like Extension #####
+
 
 end

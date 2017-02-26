@@ -28,7 +28,8 @@ include("../lib/$(major).$(minor)/libcuda_types.jl")
 
 include("device.jl")
 include("function.jl")
-include("headers.jl")
+include("headers/array_h.jl")
+include("headers/range_h.jl")
 
 initctx()
 infodevices()

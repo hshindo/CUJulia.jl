@@ -1,4 +1,4 @@
-import Base: exp, log
+import Base: exp, log, transpose
 import Base: .+, +, .-, -, .*, *
 
 for op in (:exp, :log)
@@ -18,6 +18,14 @@ for op in (:exp, :log)
                 y
             end
         end
+    end
+end
+
+@generated function transpose2{T}(x::CuMatrix{T})
+
+    quote
+        y = similar(x, size(x,2), size(x,1))
+        $f(y.ptr, x.ptr)
     end
 end
 
@@ -72,6 +80,21 @@ for op in (:+, :-)
     end
 end
 
+@generated function -{T}(x::CuArray{T})
+    f = CuFunction("""
+    __global__ void f($T *x, $T *y, int length) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < length) {
+            y[idx] = -x[idx];
+        }
+    }""")
+    quote
+        y = similar(x)
+        $f(x.ptr, y.ptr, length(y), dx=length(y))
+        y
+    end
+end
+
 for op in (:.+, :.-, :.*)
     @eval begin
         function $op{T,N}(x1::CuArray{T,N}, x2::CuArray{T,N})
@@ -87,6 +110,5 @@ for op in (:.+, :.-, :.*)
     end
 end
 
-function *(x1::CuArray, x2::CuArray)
-    BLAS.gemm(x1, x2)
-end
+*(x1::CuMatrix, x2::CuVector) = BLAS.gemv(x1, x2)
+*(x1::CuMatrix, x2::CuMatrix) = BLAS.gemm(x1, x2)

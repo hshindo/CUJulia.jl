@@ -13,6 +13,21 @@ typealias CuVecOrMat{T} Union{CuVector{T},CuMatrix{T}}
 
 (::Type{CuArray{T}}){T,N}(dims::NTuple{N,Int}) = CuArray{T,N}(alloc(T,prod(dims)), dims)
 (::Type{CuArray{T}}){T}(dims::Int...) = CuArray{T}(dims)
+@generated function (::Type{CuArray{T}}){T,U}(x::CuArray{U})
+    f = CuFunction("""
+    __global__ void f($T *y, $U *x, int length) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < length) {
+            y[idx] = x[idx];
+        }
+    }""")
+    quote
+        y = CuArray{T}(size(x))
+        $f(y.ptr, x.ptr, length(y), dx=length(y))
+        y
+    end
+end
+
 CuArray{T,N}(x::Array{T,N}) = copy!(CuArray{T}(size(x)), x)
 Base.Array{T,N}(x::CuArray{T,N}) = copy!(Array{T}(size(x)), x)
 
@@ -104,7 +119,87 @@ function redim{T,N}(x::CuArray{T,N}, n::Int; pad=0)
     reshape(x, dims)
 end
 
-Base.getindex(x::CuArray, indexes...) = CuArray(view(x,indexes))
-Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...) = copy!(view(y,indexes),x)
+function sub2dims(indexes::Tuple)
+    ranges = Int[]
+    dims = Int[]
+    for i = 1:length(indexes)
+        index = indexes[i]
+        if isa(index, Range)
+            push!(ranges, start(index)-1, step(index))
+            push!(dims, length(index))
+        elseif isa(index, Colon)
+            push!(ranges, 0, 1)
+            push!(dims, size(x,i))
+        elseif isa(index, Int)
+            push!(ranges, index-1, 0)
+            push!(dims, 1)
+        else
+            throw("Invalid index.")
+        end
+    end
+    ranges, ntuple(i -> dims[i], length(dims))
+end
+
+@generated function Base.getindex{T,N}(x::CuArray{T,N}, indexes...)
+    f = CuFunction("""
+    __global__ void f(Array<$T,$N> y, Array<$T,$N> x, Ranges<$N> ranges) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < y.length()) {
+            int subs[$N];
+            y.idx2sub(idx, subs);
+            ranges.convert(subs);
+            y[idx] = x(subs);
+        }
+    }
+    """)
+    quote
+        ranges, dims = sub2dims(indexes)
+        y = similar(x, dims)
+        $f(y, x, ranges, dx=length(y))
+        y
+    end
+end
+
+@generated function Base.setindex!{T,N}(y::CuArray{T,N}, x::CuArray{T,N}, indexes...)
+    f = CuFunction("""
+    __global__ void f(Array<$T,$N> y, Array<$T,$N> x, Ranges<$N> ranges) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < x.length()) {
+            int subs[$N];
+            x.idx2sub(idx, subs);
+            ranges.convert(subs);
+            y(subs) = x[idx];
+        }
+    }
+    """)
+    quote
+        ranges, dims = sub2dims(indexes)
+        dims == size(x) || throw("Size mismatch.")
+        $f(y, x, ranges, dx=length(x))
+        y
+    end
+end
+
+function Base.cat(dim::Int, A::CuArray...)
+    cumdim = 0
+    for x in A
+        cumdim += size(x, dim)
+    end
+    outsize = [size(A[1])...]
+    while length(outsize) < dim
+        push!(outsize, 1)
+    end
+    outsize[dim] = cumdim
+    y = similar(A[1], outsize...)
+    range = map(s -> 1:s, outsize)
+    offset = 1
+    for x in A
+        s = size(x, dim)
+        range[dim] = offset:(offset+s-1)
+        y[range...] = x
+        offset += s
+    end
+    y
+end
 
 box{T}(a::CuArray{T}) = CUArray(Ptr{T}(a.ptr), box(size(a)))
