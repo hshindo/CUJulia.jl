@@ -180,7 +180,7 @@ end
     end
 end
 
-@generated function Base.cat(dim::Int, xs::CuArray...)
+@generated function Base.cat{T}(dim::Int, xs::CuArray{T}...)
     f = CuFunction("""
     __global__ void f(void *p) {
         int idx = blockIdx.x * blockDim.x + threadIdx.x;
