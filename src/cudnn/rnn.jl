@@ -1,24 +1,34 @@
 export
-    # cudnnRNNMode_t
-    CUDNN_RNN_RELU,
-    CUDNN_RNN_TANH,
-    CUDNN_LSTM, CUDNN_GRU,
-
     # cudnnRNNInputMode_t
     CUDNN_LINEAR_INPUT,
     CUDNN_SKIP_INPUT,
 
     # cudnnDirectionMode_t
     CUDNN_UNIDIRECTIONAL,
-    CUDNN_BIDIRECTIONAL
+    CUDNN_BIDIRECTIONAL,
+
+    # cudnnRNNMode_t
+    CUDNN_RNN_RELU,
+    CUDNN_RNN_TANH,
+    CUDNN_LSTM,
+    CUDNN_GRU
 
 type RNNDesc
     ptr::Ptr{Void}
+    workspace
 
-    function RNNDesc()
+    function RNNDesc{T}(::Type{T}, dropoutdesc, dir, mode, h, seqlength::Int)
         p = Ptr{Void}[0]
         cudnnCreateRNNDescriptor(p)
-        desc = new(p[1])
+        ptr = p[1]
+
+        cudnnSetRNNDescriptor(ptr, hsize, nlayers, dropoutdesc, CUDNN_LINEAR_INPUT, dir, mode, datatype(T))
+
+        p = Csize_t[0]
+        cudnnGetRNNWorkspaceSize(h, ptr, seqlength, xdesc, p)
+        workspace = CuArray{Csize_t}(p[1])
+
+        desc = new(ptr, workspace)
         finalizer(desc, cudnnDestroyRNNDescriptor)
         desc
     end
