@@ -50,88 +50,84 @@ export CUDNN_SOFTMAX_FAST, CUDNN_SOFTMAX_ACCURATE, CUDNN_SOFTMAX_LOG # algorithm
 
 type TensorDesc
     ptr::Ptr{Void}
-end
 
-function TensorDesc{T,N}(x::CuArray{T,N}; pad=0)
-    @assert N <= 4
-    csize = Cint[1, 1, 1, 1]
-    cstrides = Cint[1, 1, 1, 1]
-    st = strides(x)
-    for i = 1:N
-        csize[4-i-pad+1] = size(x,i)
-        cstrides[4-i-pad+1] = st[i]
+    function TensorDesc{T,N}(x::CuArray{T,N}; pad=0)
+        @assert N <= 4
+        csize = Cint[1, 1, 1, 1]
+        cstrides = Cint[1, 1, 1, 1]
+        st = strides(x)
+        for i = 1:N
+            csize[4-i-pad+1] = size(x,i)
+            cstrides[4-i-pad+1] = st[i]
+        end
+        p = Ptr{Void}[0]
+        cudnnCreateTensorDescriptor(p)
+        cudnnSetTensorNdDescriptor(p[1], datatype(T), 4, csize, cstrides)
+        desc = new(p[1])
+        finalizer(desc, cudnnDestroyTensorDescriptor)
+        desc
     end
-    p = Ptr{Void}[0]
-    cudnnCreateTensorDescriptor(p)
-    cudnnSetTensorNdDescriptor(p[1], datatype(T), 4, csize, cstrides)
-    desc = TensorDesc(p[1])
-    finalizer(desc, cudnnDestroyTensorDescriptor)
-    desc
 end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, desc::TensorDesc) = desc.ptr
 
 type ActivationDesc
     ptr::Ptr{Void}
-end
 
-function ActivationDesc(mode::UInt32; relu_nanopt=CUDNN_NOT_PROPAGATE_NAN, relu_ceiling=1.0)
-    p = Ptr{Void}[0]
-    cudnnCreateActivationDescriptor(p)
-    cudnnSetActivationDescriptor(p[1], mode, relu_nanopt, relu_ceiling)
-    desc = ActivationDesc(p[1])
-    finalizer(desc, cudnnDestroyActivationDescriptor)
-    desc
+    function ActivationDesc(mode::UInt32; relu_nanopt=CUDNN_NOT_PROPAGATE_NAN, relu_ceiling=1.0)
+        p = Ptr{Void}[0]
+        cudnnCreateActivationDescriptor(p)
+        cudnnSetActivationDescriptor(p[1], mode, relu_nanopt, relu_ceiling)
+        desc = new(p[1])
+        finalizer(desc, cudnnDestroyActivationDescriptor)
+        desc
+    end
 end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, desc::ActivationDesc) = desc.ptr
 
 type ConvDesc
     ptr::Ptr{Void}
-end
 
-function ConvDesc{T,N}(::Type{T}, pads::NTuple{N,Int}, strides; mode=CUDNN_CROSS_CORRELATION)
-    p = Ptr{Void}[0]
-    cudnnCreateConvolutionDescriptor(p)
-    c_pads = Cint[pads[i] for i=N:-1:1]
-    c_strides = Cint[strides[i] for i=N:-1:1]
-    c_upscale = fill(Cint(1), N)
-    cudnnSetConvolutionNdDescriptor(p[1], N, c_pads, c_strides, c_upscale, mode, datatype(T))
-    desc = new(p[1])
-    finalizer(desc, cudnnDestroyConvolutionDescriptor)
-    desc
+    function ConvDesc{T,N}(::Type{T}, pads::NTuple{N,Int}, strides; mode=CUDNN_CROSS_CORRELATION)
+        p = Ptr{Void}[0]
+        cudnnCreateConvolutionDescriptor(p)
+        c_pads = Cint[pads[i] for i=N:-1:1]
+        c_strides = Cint[strides[i] for i=N:-1:1]
+        c_upscale = fill(Cint(1), N)
+        cudnnSetConvolutionNdDescriptor(p[1], N, c_pads, c_strides, c_upscale, mode, datatype(T))
+        desc = new(p[1])
+        finalizer(desc, cudnnDestroyConvolutionDescriptor)
+        desc
+    end
 end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, desc::ConvDesc) = desc.ptr
 
 type DropoutDesc
     ptr::Ptr{Void}
-end
 
-function DropoutDesc()
-    p = Ptr{Void}[0]
-    cudnnCreateDropoutDescriptor(p)
-    desc = new(p[1])
-    finalizer(desc, cudnnDestroyDropoutDescriptor)
-    desc
+    function DropoutDesc()
+        p = Ptr{Void}[0]
+        cudnnCreateDropoutDescriptor(p)
+        desc = new(p[1])
+        finalizer(desc, cudnnDestroyDropoutDescriptor)
+        desc
+    end
 end
-
-Base.unsafe_convert(::Type{Ptr{Void}}, desc::DropoutDesc) = desc.ptr
 
 type FilterDesc
     ptr::Ptr{Void}
+
+    function FilterDesc{T,N}(x::CuArray{T,N})
+        csize = Cint[size(x,i) for i=N:-1:1]
+        p = Ptr{Void}[0]
+        cudnnCreateFilterDescriptor(p)
+        cudnnSetFilterNdDescriptor(p[1], datatype(T), format, N, csize)
+        desc = new(p[1])
+        finalizer(desc, cudnnDestroyFilterDescriptor)
+        desc
+    end
 end
 
-function FilterDesc{T,N}(x::CuArray{T,N})
-    csize = Cint[size(x,i) for i=N:-1:1]
-    p = Ptr{Void}[0]
-    cudnnCreateFilterDescriptor(p)
-    cudnnSetFilterNdDescriptor(p[1], datatype(T), format, N, csize)
-    desc = new(p[1])
-    finalizer(desc, cudnnDestroyFilterDescriptor)
-    desc
-end
-
+Base.unsafe_convert(::Type{Ptr{Void}}, desc::TensorDesc) = desc.ptr
+Base.unsafe_convert(::Type{Ptr{Void}}, desc::ActivationDesc) = desc.ptr
+Base.unsafe_convert(::Type{Ptr{Void}}, desc::ConvDesc) = desc.ptr
+Base.unsafe_convert(::Type{Ptr{Void}}, desc::DropoutDesc) = desc.ptr
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::FilterDesc) = desc.ptr
 
 end
