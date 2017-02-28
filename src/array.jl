@@ -180,7 +180,22 @@ end
     end
 end
 
-function Base.cat(dim::Int, A::CuArray...)
+@generated function Base.cat(dim::Int, xs::CuArray...)
+    f = CuFunction("""
+    __global__ void f(void *p) {
+        int idx = blockIdx.x * blockDim.x + threadIdx.x;
+        if (idx < 10) {
+
+        }
+    }
+    """)
+    quote
+        p = Ptr{Void}[Ptr{T}(xs[i].ptr) for i=1:length(xs)]
+        $f(p, dx=10)
+    end
+end
+
+function cat2(dim::Int, A::CuArray...)
     cumdim = 0
     for x in A
         cumdim += size(x, dim)
