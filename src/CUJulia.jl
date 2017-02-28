@@ -46,6 +46,6 @@ include("reducedim.jl")
 
 include("NVRTC.jl")
 include("CUBLAS.jl")
-include("CUDNN.jl")
+include("cudnn/CUDNN.jl")
 
 end
