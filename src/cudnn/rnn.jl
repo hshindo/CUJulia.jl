@@ -16,7 +16,7 @@ export
 type RNNDesc
     ptr::Ptr{Void}
 
-    function RNNDesc{T}(::Type{T}, dropoutdesc, dir, mode, h, seqlength::Int)
+    function RNNDesc()
         p = Ptr{Void}[0]
         cudnnCreateRNNDescriptor(p)
         desc = new(p[1])
@@ -27,28 +27,22 @@ end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::RNNDesc) = desc.ptr
 
-function rnn_training!{T}(hiddensize::Int, numlayers::Int, dropdesc, direction, mode, seqlength::Int,
+function rnn(hiddensize::Int, numlayers::Int, droprate::Float64, direction, mode, seqlength::Int,
     xs::Vector;
     inputmode=CUDNN_LINEAR_INPUT)
-    xdims, x::CuArray{T}, hx::CuArray, cx::CuArray,
-    droprate, input_t, dir_t, net_t; seed=0)
+    xdims, x::CuArray{T}, hx::CuArray, cx::CuArray)
 
     rnndesc = RNNDesc()
+    dropdesc = DropoutDesc()
     cudnnSetRNNDescriptor(rnndesc, hiddensize, numlayers, dropdesc, inputmode,
         direction, mode, datatype(T))
 
-    #xdesc = TensorDesc(CuArray(T,xdims[1]...))
+    h = handle(xs[1])
+    xdesc = [TensorDesc(xs[i]) for i=1:length(xs)]
     p = Csize_t[0]
     cudnnGetRNNWorkspaceSize(h, rnndesc, seqlength, xdesc, p)
     workspace = CuArray{Csize_t}(p[1])
 
-    xdesc = TensorDesc()
-    #xdescs = [ for i=1:length(xs)]
-
-    xdescs = fill(xdesc, length(xdims))
-    for i=1:length(xdims)
-        xdescs[i] = TensorDesc(CuArray(T,xdims[i]))
-    end
     hxdesc = TensorDesc(hx)
     cxdesc = TensorDesc(cx)
 
