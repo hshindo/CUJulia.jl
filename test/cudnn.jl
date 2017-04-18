@@ -28,4 +28,9 @@ x = CuArray(rand(T,5,4,3,10))
 y, df = pooling(CUDNN_POOLING_MAX, (2,2), (1,1), (2,2), x)
 @test true
 
+# softmax
+x = CuArray(rand(T,5,4,3,10))
+y, df = softmax(x)
+y, df = logsoftmax(x)
+
 end

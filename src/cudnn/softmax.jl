@@ -10,10 +10,9 @@ export
 
 function softmax(x; algo=CUDNN_SOFTMAX_ACCURATE, mode=CUDNN_SOFTMAX_MODE_CHANNEL)
     h = handle(x)
-    reshape(x)
-
-    pad = 4 - N
-    xdesc = TensorDesc(x)
+    dims1 = ntuple(_ -> 1, 4-ndims(x))
+    x4d = reshape(x, dims1..., size(x)...)
+    xdesc = TensorDesc(x4d)
     y = similar(x)
     cudnnSoftmaxForward(h, algo, mode, T[1], xdesc, x, T[0], xdesc, y)
 
@@ -25,13 +24,3 @@ function softmax(x; algo=CUDNN_SOFTMAX_ACCURATE, mode=CUDNN_SOFTMAX_MODE_CHANNEL
 end
 
 logsoftmax(x) = softmax(x, algo=CUDNN_SOFTMAX_LOG)
-
-N = ndims(x)
-@assert N <= 4
-csize = Cint[1, 1, 1, 1]
-cstrides = Cint[1, 1, 1, 1]
-st = strides(x)
-for i = 1:N
-    csize[4-i-pad+1] = size(x,i)
-    cstrides[4-i-pad+1] = st[i]
-end

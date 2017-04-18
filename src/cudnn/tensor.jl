@@ -1,20 +1,14 @@
 type TensorDesc
     ptr::Ptr{Void}
 
-    function TensorDesc(x; dims)
+    function TensorDesc(x)
         T = eltype(x)
         N = ndims(x)
-        @assert N <= 4
-        csize = Cint[1, 1, 1, 1]
-        cstrides = Cint[1, 1, 1, 1]
-        st = strides(x)
-        for i = 1:N
-            csize[4-i-pad+1] = size(x,i)
-            cstrides[4-i-pad+1] = st[i]
-        end
+        csize = Cint[size(x,i) for i=N:-1:1]
+        cstrides = Cint[stride(x,i) for i=N:-1:1]
         p = Ptr{Void}[0]
         cudnnCreateTensorDescriptor(p)
-        cudnnSetTensorNdDescriptor(p[1], datatype(T), 4, csize, cstrides)
+        cudnnSetTensorNdDescriptor(p[1], datatype(T), N, csize, cstrides)
         desc = new(p[1])
         finalizer(desc, cudnnDestroyTensorDescriptor)
         desc
