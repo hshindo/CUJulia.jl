@@ -45,23 +45,36 @@ function rnn(hiddensize::Int, numlayers::Int, droprate::Float64, direction, mode
 
     p = Csize_t[0]
     cudnnGetRNNTrainingReserveSize(h, rnndesc, seqlength, xdesc, p)
-    reservesize = CuArray{Int8}(Int(p[1]))
+    reservespace = CuArray{Int8}(Int(p[1]))
 
     p = Csize_t[0]
     cudnnGetRNNParamsSize(h, rnndesc, xdesc, p, datatype(T))
     paramsize = CuArray{Int8}(Int(p[1]))
 
-    linmatdesc = FilterDesc() # ?
+    matdesc = FilterDesc() # ?
     p = Ptr{Void}[0]
     cudnnGetRNNLinLayerMatrixParams(h, rnndesc, 0, xdesc, wdesc, w,
-        0, linmatdesc, p)
-    linmat = p[1]
+        0, matdesc, p)
+    mat = p[1]
 
     bdesc = FilterDesc()
     p = Ptr{Void}[0]
     cudnnGetRNNLinLayerBiasParams(h, rnndesc, 0, xdesc[1], wdesc, w,
-        0, bdesc, b_p)
+        0, bdesc, p)
     b = p[1]
+
+    cudnnRNNForwardTraining(h, rnndesc, length(xs), xdesc, xs,
+        workspace, length(workspace), reservespace, length(reservespace))
+
+    cudnnRNNForwardTraining(h, rnndesc, Cint(length(xdescs)), xdescs, x, hxdesc,
+        hx, cxdesc, cx, wdesc, w, ydescs, y, hydesc, hy, cydesc, cy, workspace,
+        worksize, trainspace, trainsize)
+
+    cudnnRNNForwardInference(h, rnndesc, length(xs), xdesc, xs,
+        hxdesc, hx, cxdesc, cx, wdesc, w, ydesc, y, hydesc, hy, cydesc, cy,
+        workspace, length(workspace))
+
+
 
 
 
