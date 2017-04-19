@@ -2,8 +2,8 @@ module NVRTC
 
 using ..CUJulia
 
-include("../lib/$(CUJulia.major).$(CUJulia.minor)/libnvrtc.jl")
-include("../lib/$(CUJulia.major).$(CUJulia.minor)/libnvrtc_types.jl")
+include("../lib/$(CUJulia.major)$(CUJulia.minor)/libnvrtc.jl")
+include("../lib/$(CUJulia.major)$(CUJulia.minor)/libnvrtc_types.jl")
 
 if is_windows()
     const libnvrtc = Libdl.find_library(["nvrtc64_80","nvrtc64_75"])

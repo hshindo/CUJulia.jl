@@ -11,8 +11,8 @@ else
 end
 isempty(libcublas) && error("CUBLAS library cannot be found.")
 
-include("../lib/$(CUJulia.major).$(CUJulia.minor)/libcublas.jl")
-include("../lib/$(CUJulia.major).$(CUJulia.minor)/libcublas_types.jl")
+include("../lib/$(CUJulia.major)$(CUJulia.minor)/libcublas.jl")
+include("../lib/$(CUJulia.major)$(CUJulia.minor)/libcublas_types.jl")
 
 function check_cublasstatus(status)
     status == CUBLAS_STATUS_SUCCESS && return nothing

@@ -3,7 +3,7 @@ module CUDNN
 using ..CUJulia
 
 if is_windows()
-    const libcudnn = Libdl.find_library(["cudnn64_5"])
+    const libcudnn = Libdl.find_library(["cudnn64_6","cudnn64_5"])
 else
     const libcudnn = Libdl.find_library(["libcudnn"])
 end
@@ -14,8 +14,8 @@ const major = div(version, 1000)
 const minor = div(version - major*1000, 100)
 
 info("CUDNN version: $(version)")
-include("../lib/libcudnn$(major)$(minor).jl")
-include("../lib/libcudnn$(major)$(minor)_types.jl")
+include("../lib/$(CUJulia.major)$(CUJulia.minor)/libcudnn$(major)$(minor).jl")
+include("../lib/$(CUJulia.major)$(CUJulia.minor)/libcudnn$(major)$(minor)_types.jl")
 
 function checkstatus(status)
     status == CUDNN_STATUS_SUCCESS && return
@@ -45,8 +45,8 @@ include("cudnn/dropout.jl")
 include("cudnn/filter.jl")
 include("cudnn/math.jl")
 include("cudnn/pooling.jl")
-#include("rnn.jl")
-#include("softmax.jl")
+#include("cudnn/rnn.jl")
+include("cudnn/softmax.jl")
 include("cudnn/tensor.jl")
 
 end

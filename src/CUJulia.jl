@@ -23,8 +23,8 @@ info("CUDA driver version: $driver_version")
 
 const major = div(driver_version, 1000)
 const minor = div(driver_version - major*1000, 10)
-include("../lib/$(major).$(minor)/libcuda.jl")
-include("../lib/$(major).$(minor)/libcuda_types.jl")
+include("../lib/$(major)$(minor)/libcuda.jl")
+include("../lib/$(major)$(minor)/libcuda_types.jl")
 
 include("device.jl")
 include("function.jl")

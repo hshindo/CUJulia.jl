@@ -41,7 +41,29 @@ function rnn(hiddensize::Int, numlayers::Int, droprate::Float64, direction, mode
     xdesc = [TensorDesc(xs[i]) for i=1:length(xs)]
     p = Csize_t[0]
     cudnnGetRNNWorkspaceSize(h, rnndesc, seqlength, xdesc, p)
-    workspace = CuArray{Csize_t}(p[1])
+    workspace = CuArray{Int8}(Int(p[1]))
+
+    p = Csize_t[0]
+    cudnnGetRNNTrainingReserveSize(h, rnndesc, seqlength, xdesc, p)
+    reservesize = CuArray{Int8}(Int(p[1]))
+
+    p = Csize_t[0]
+    cudnnGetRNNParamsSize(h, rnndesc, xdesc, p, datatype(T))
+    paramsize = CuArray{Int8}(Int(p[1]))
+
+    linmatdesc = FilterDesc() # ?
+    p = Ptr{Void}[0]
+    cudnnGetRNNLinLayerMatrixParams(h, rnndesc, 0, xdesc, wdesc, w,
+        0, linmatdesc, p)
+    linmat = p[1]
+
+    bdesc = FilterDesc()
+    p = Ptr{Void}[0]
+    cudnnGetRNNLinLayerBiasParams(h, rnndesc, 0, xdesc[1], wdesc, w,
+        0, bdesc, b_p)
+    b = p[1]
+
+
 
     hxdesc = TensorDesc(hx)
     cxdesc = TensorDesc(cx)

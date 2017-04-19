@@ -22,9 +22,10 @@ end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::ConvolutionDesc) = desc.ptr
 
-function convolution{N}(x, w, b, pads::NTuple{N,Int}, strides::NTuple{N,Int}; mode=CUDNN_CROSS_CORRELATION)
+function convolution{T,N}(x::CuArray{T}, w::CuArray{T}, b::CuArray{T},
+    pads::NTuple{N,Int}, strides::NTuple{N,Int}; mode=CUDNN_CROSS_CORRELATION)
+
     convdesc = ConvolutionDesc()
-    T = eltype(x)
     c_pads = Cint[pads[i] for i=N:-1:1]
     c_strides = Cint[strides[i] for i=N:-1:1]
     c_upscale = fill(Cint(1), N)
@@ -51,6 +52,8 @@ function convolution{N}(x, w, b, pads::NTuple{N,Int}, strides::NTuple{N,Int}; mo
 
     cudnnConvolutionForward(h, T[1], xdesc, x, wdesc, w, convdesc,
         algo, workspace, worksize, T[0], ydesc, y)
+    dims1 = ntuple(_ -> 1, ndims(y)-ndims(b))
+    b = reshape(b, size(b)..., dims1...)
     addtensor!(b, y)
 
     function backward!(gy, gx, gw, gb)

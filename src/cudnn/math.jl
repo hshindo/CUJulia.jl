@@ -1,7 +1,6 @@
-function addtensor!(x, y)
-    h = handle(x)
-    T = eltype(x)
-    xdesc = TensorDesc(x)
-    cudnnAddTensor(h, T[1], xdesc, x, T[0], xdesc, y)
-    y
+function addtensor!{T,N}(A::CuArray{T,N}, C::CuArray{T,N})
+    h = handle(A)
+    adesc = TensorDesc(A)
+    cudnnAddTensor(h, T[1], adesc, A, T[1], adesc, C)
+    C
 end

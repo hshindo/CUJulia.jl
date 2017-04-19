@@ -8,7 +8,7 @@ export
     CUDNN_SOFTMAX_ACCURATE,
     CUDNN_SOFTMAX_LOG
 
-function softmax(x; algo=CUDNN_SOFTMAX_ACCURATE, mode=CUDNN_SOFTMAX_MODE_CHANNEL)
+function softmax{T}(x::CuArray{T}; algo=CUDNN_SOFTMAX_ACCURATE, mode=CUDNN_SOFTMAX_MODE_CHANNEL)
     h = handle(x)
     dims1 = ntuple(_ -> 1, 4-ndims(x))
     x4d = reshape(x, dims1..., size(x)...)
