@@ -27,10 +27,13 @@ end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::RNNDesc) = desc.ptr
 
-function rnn(hiddensize::Int, numlayers::Int, droprate::Float64, direction, mode, seqlength::Int,
-    xs::Vector;
+function rnn(xs::Vector, ws::Vector)
+
+end
+
+function rnn{T}(hiddensize::Int, numlayers::Int, droprate::Float64, direction, mode,
+    xs::Vector, hx::CuArray{T}, cx::CuArray{T};
     inputmode=CUDNN_LINEAR_INPUT)
-    xdims, x::CuArray{T}, hx::CuArray, cx::CuArray)
 
     rnndesc = RNNDesc()
     dropdesc = DropoutDesc()
@@ -129,9 +132,5 @@ function rnn(hiddensize::Int, numlayers::Int, droprate::Float64, direction, mode
     cudnnRNNForwardTraining(h, rnndesc, Cint(length(xdescs)), xdescs, x, hxdesc,
         hx, cxdesc, cx, wdesc, w, ydescs, y, hydesc, hy, cydesc, cy, workspace,
         worksize, trainspace, trainsize)
-
-    function backward!()
-
-    end
     w, y, hy, cy, dropdesc, dropstate
 end
