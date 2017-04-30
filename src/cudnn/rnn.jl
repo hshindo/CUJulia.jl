@@ -27,110 +27,120 @@ end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::RNNDesc) = desc.ptr
 
-function rnn(xs::Vector, ws::Vector)
-
+type RNN
+    desc::RNNDesc
+    wdesc
+    w
+    hxdesc
+    hx
+    cxdesc
+    cx
 end
 
-function rnn{T}(hiddensize::Int, numlayers::Int, droprate::Float64, direction, mode,
-    xs::Vector, hx::CuArray{T}, cx::CuArray{T};
-    inputmode=CUDNN_LINEAR_INPUT)
+"""
+* w
+* hx: (hsize, batchsize, layersize)
+* cx: same as hx
+"""
+function RNN{T}(w::CuArray{T}, hx::CuArray{T,3}, cx::CuArray{T,3},
+    droprate::Float64, dir, mode; inputmode=CUDNN_LINEAR_INPUT)
 
+    h = handle(w)
     rnndesc = RNNDesc()
-    dropdesc = DropoutDesc()
-    cudnnSetRNNDescriptor(rnndesc, hiddensize, numlayers, dropdesc, inputmode,
-        direction, mode, datatype(T))
+    dropdesc = DropoutDesc(h, droprate)
+    hsize = size(hx, 1)
+    nlayers = size(hx, 3)
+    cudnnSetRNNDescriptor(rnndesc, hsize, nlayers, dropdesc, inputmode, dir, mode, datatype(T))
 
-    h = handle(xs[1])
-    xdesc = [TensorDesc(xs[i]) for i=1:length(xs)]
+    xdesc = TensorDesc(CuArray{T}(1,size(hx,1),size(hx,2)))
     p = Csize_t[0]
-    cudnnGetRNNWorkspaceSize(h, rnndesc, seqlength, xdesc, p)
+    cudnnGetRNNParamsSize(h, rnndesc, xdesc, p, datatype(T))
+    Int(p[1]) == length(w) || throw("The number of parameters is wrong: $(p[1]), $(length(w)).")
+    wdesc = FilterDesc(reshape(w,1,1,length(w)))
+
+    #=
+    if mode == CUDNN_RNN_RELU || mode == CUDNN_RNN_TANH
+        nids = 2
+    elseif mode == CUDNN_LSTM
+        nids = 8
+    elseif mode == CUDNN_GRU
+        nids = 6
+    end
+    for l = 1:(dir == CUDNN_BIDIRECTIONAL ? nlayers*2 : nlayers)
+        for id = 1:nids
+            p = Ptr{Void}[0]
+            cudnnGetRNNLinLayerMatrixParams(h, rnndesc, l-1, xdesc, wdesc, w, id-1, C_NULL, p)
+            println(UInt64(p[1]))
+
+            p = Ptr{Void}[0]
+            cudnnGetRNNLinLayerBiasParams(h, rnndesc, l-1, xdesc, wdesc, w, id-1, C_NULL, p)
+            println(UInt64(p[1]))
+        end
+    end
+    =#
+    RNN(rnndesc, wdesc, w, TensorDesc(hx), hx, TensorDesc(cx), cx)
+end
+
+function (rnn::RNN){T}(xs::Vector{CuMatrix{T}})
+    h = handle(xs[1])
+    xdescs = map(x -> TensorDesc(reshape(x,1,size(x)...)), xs)
+    xdesc = ydesc = map(x -> x.ptr, xdescs)
+    y = similar(x)
+    hydesc = rnn.hxdesc
+    hy = similar(hx)
+    cydesc = rnn.cxdesc
+    cy = similar(cx)
+
+    p = Csize_t[0]
+    cudnnGetRNNWorkspaceSize(h, rnn.desc, length(xs), xdesc, p)
     workspace = CuArray{Int8}(Int(p[1]))
 
     p = Csize_t[0]
-    cudnnGetRNNTrainingReserveSize(h, rnndesc, seqlength, xdesc, p)
+    cudnnGetRNNTrainingReserveSize(h, rnn.desc, length(xs), xdesc, p)
     reservespace = CuArray{Int8}(Int(p[1]))
 
-    p = Csize_t[0]
-    cudnnGetRNNParamsSize(h, rnndesc, xdesc, p, datatype(T))
-    paramsize = CuArray{Int8}(Int(p[1]))
-
-    matdesc = FilterDesc() # ?
-    p = Ptr{Void}[0]
-    cudnnGetRNNLinLayerMatrixParams(h, rnndesc, 0, xdesc, wdesc, w,
-        0, matdesc, p)
-    mat = p[1]
-
-    bdesc = FilterDesc()
-    p = Ptr{Void}[0]
-    cudnnGetRNNLinLayerBiasParams(h, rnndesc, 0, xdesc[1], wdesc, w,
-        0, bdesc, p)
-    b = p[1]
-
-    cudnnRNNForwardTraining(h, rnndesc, length(xs), xdesc, xs,
+    x = map(x -> Ptr{Void}(x), xs)
+    cudnnRNNForwardTraining(h, rnn.desc, length(xs), xdesc, x, rnn.hxdesc, rnn.hx, rnn.cxdesc, rnn.cx,
+        rnn.wdesc, rnn.w, ydesc, y, hydesc, hy, cydesc, cy,
         workspace, length(workspace), reservespace, length(reservespace))
+end
 
-    cudnnRNNForwardTraining(h, rnndesc, Cint(length(xdescs)), xdescs, x, hxdesc,
-        hx, cxdesc, cx, wdesc, w, ydescs, y, hydesc, hy, cydesc, cy, workspace,
-        worksize, trainspace, trainsize)
+function rnn{T}(hsize::Int, nlayers::Int, droprate::Float64, dir, mode, w::CuMatrix{T}, b::CuMatrix{T},
+    xs::Vector{CuMatrix{T}}, hx::CuArray{T}, cx::CuArray{T};
+    inputmode=CUDNN_LINEAR_INPUT)
 
-    cudnnRNNForwardInference(h, rnndesc, length(xs), xdesc, xs,
-        hxdesc, hx, cxdesc, cx, wdesc, w, ydesc, y, hydesc, hy, cydesc, cy,
-        workspace, length(workspace))
+    h = handle(xs[1])
+    rnndesc = RNNDesc()
+    dropdesc = DropoutDesc(h, droprate)
+    cudnnSetRNNDescriptor(rnndesc, hsize, nlayers, dropdesc, inputmode, dir, mode, datatype(T))
 
-
-
-
-
-    hxdesc = TensorDesc(hx)
-    cxdesc = TensorDesc(cx)
+    x = map(x -> Ptr{Void}(x), xs)
+    xdescs = map(x -> TensorDesc(reshape(x,1,size(x)...)), xs)
+    xdesc = map(x -> x.ptr, xdescs)
+    hxdesc = cxdesc = hydesc = cydesc = TensorDesc(hx)
+    wdesc = FilterDesc(reshape(w,1,1,length(w)+length(b)))
 
     y = similar(x)
     hy = similar(hx)
     cy = similar(cx)
-    ydescs = similar(xdescs)
-    for i=1:length(xdims)
-        ydescs[i] = TensorDesc(CuArray(T,xdims[i]))
-    end
-    hydesc = TensorDesc(hy)
-    cydesc = TensorDesc(cy)
 
-    h = handle(x)
-    rnndesc, dropdesc, dropstate = rnn_desc(x, size(hx,2), size(hx,4), input_t,
-        dir_t, net_t, droprate, seed)
-    wsize_p = Cint[0]
-    cudnnGetRNNParamsSize(h, rnndesc, xdesc, wsize_p, datatype(T))
-    wsize = wsize_p[1]
-    w = curand(T, 1, 1, 1, Int(wsize/(T.size)))
-    wdesc = FilterDesc(w)
+    p = Csize_t[0]
+    cudnnGetRNNWorkspaceSize(h, rnndesc, length(xs), xdesc, p)
+    workspace = CuArray{Int8}(Int(p[1]))
 
-    worksize_p = Cint[0]
-    cudnnGetRNNWorkspaceSize(h, rnndesc, Cint(length(xdescs)), xdescs, worksize_p)
-    worksize = worksize_p[1]
-    workspace = CuArray(Int8, Int(worksize))
+    p = Csize_t[0]
+    cudnnGetRNNTrainingReserveSize(h, rnndesc, length(xs), xdesc, p)
+    reservespace = CuArray{Int8}(Int(p[1]))
 
-    trainsize_p = Cint[0]
-    cudnnGetRNNTrainingReserveSize(h, rnndesc, Cint(length(xdescs)), xdescs, trainsize_p)
-    trainsize = trainsize_p[1]
-    trainspace = CuArray(Int8, Int(trainsize))
+    cudnnRNNForwardTraining(h, rnndesc, length(xs), xdesc, x, hxdesc, hx, cxdesc, cx,
+        wdesc, w, ydesc, y, hydesc, hy, cydesc, cy,
+        workspace, length(workspace), reservespace, length(reservespace))
+end
 
-    mdesc_p = Ptr{Void}[0]
-    cudnnCreateFilterDescriptor(mdesc_p)
-    mdesc = mdesc_p[1]
-    m_p = Ptr{Void}[0]
-    cudnnGetRNNLinLayerMatrixParams(h, rnndesc, Cint(0), xdesc, wdesc, w,
-        Cint(0), mdesc, m_p)
-    m = m_p[1]
-
-    bdesc_p = Ptr{Void}[0]
-    cudnnCreateFilterDescriptor(bdesc_p)
-    bdesc = bdesc_p[1]
-    b_p = Ptr{Void}[0]
-    cudnnGetRNNLinLayerBiasParams(h, rnndesc, Cint(0), xdesc, wdesc, w,
-        Cint(0), bdesc, b_p)
-    b = b_p[1]
-
-    cudnnRNNForwardTraining(h, rnndesc, Cint(length(xdescs)), xdescs, x, hxdesc,
-        hx, cxdesc, cx, wdesc, w, ydescs, y, hydesc, hy, cydesc, cy, workspace,
-        worksize, trainspace, trainsize)
-    w, y, hy, cy, dropdesc, dropstate
+function getnlinlayers(mode)
+    mode == CUDNN_RNN_RELU && return 2
+    mode == CUDNN_RNN_TANH && return 2
+    mode == CUDNN_RNN_LSTM && return 8
+    mode == CUDNN_GRU && return 6
+    throw("Invalid mode: $mode.")
 end

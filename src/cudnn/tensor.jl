@@ -1,9 +1,7 @@
 type TensorDesc
     ptr::Ptr{Void}
 
-    function TensorDesc(x)
-        T = eltype(x)
-        N = ndims(x)
+    function TensorDesc{T,N}(x::CuArray{T,N})
         csize = Cint[size(x,i) for i=N:-1:1]
         cstrides = Cint[stride(x,i) for i=N:-1:1]
         p = Ptr{Void}[0]

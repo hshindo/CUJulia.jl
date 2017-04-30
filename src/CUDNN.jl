@@ -45,7 +45,7 @@ include("cudnn/dropout.jl")
 include("cudnn/filter.jl")
 include("cudnn/math.jl")
 include("cudnn/pooling.jl")
-#include("cudnn/rnn.jl")
+include("cudnn/rnn.jl")
 include("cudnn/softmax.jl")
 include("cudnn/tensor.jl")
 

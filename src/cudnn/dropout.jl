@@ -1,25 +1,26 @@
 type DropoutDesc
     ptr::Ptr{Void}
 
-    function DropoutDesc()
+    function DropoutDesc(h, droprate::Float64; seed=0)
         p = Ptr{Void}[0]
         cudnnCreateDropoutDescriptor(p)
         desc = new(p[1])
         finalizer(desc, cudnnDestroyDropoutDescriptor)
+
+        p = Cint[0]
+        cudnnDropoutGetStatesSize(h, p)
+        statessize = p[1]
+        states = CuArray{Int8}(Int(statessize))
+        cudnnSetDropoutDescriptor(desc, h, droprate, states, statessize, seed)
         desc
     end
 end
 
 Base.unsafe_convert(::Type{Ptr{Void}}, desc::DropoutDesc) = desc.ptr
 
-function dropout(x, droprate::Float64)
-    dropdesc = DropoutDesc()
+function dropout{T}(x::CuArray{T}, droprate::Float64)
     h = handle(x)
-    p = Cint[0]
-    cudnnDropoutGetStatesSize(h, p)
-    statessize = p[1]
-    states = CuArray{Int8}(Int(statessize))
-    cudnnSetDropoutDescriptor(dropdesc, h, droprate, states, statessize, 0)
+    dropdesc = DropoutDesc(h, droprate)
 
     xdesc = TensorDesc(x)
     p = Cint[0]

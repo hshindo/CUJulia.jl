@@ -5,9 +5,9 @@ type FilterDesc
         p = Ptr{Void}[0]
         cudnnCreateFilterDescriptor(p)
         desc = new(p[1])
-        c_size = Cint[size(x,i) for i=N:-1:1]
-        cudnnSetFilterNdDescriptor(desc, datatype(T), format, N, c_size)
         finalizer(desc, cudnnDestroyFilterDescriptor)
+        csize = Cint[size(x,i) for i=N:-1:1]
+        cudnnSetFilterNdDescriptor(desc, datatype(T), format, N, csize)
         desc
     end
 end

@@ -1,6 +1,6 @@
 export
     CuArray, CuVector, CuMatrix, CuVecOrMat,
-    device
+    device, curand
 
 type CuArray{T,N}
     ptr::CuPtr
@@ -216,5 +216,8 @@ function cat2(dim::Int, A::CuArray...)
     end
     y
 end
+
+curand{T}(::Type{T}, dims::NTuple) = CuArray(rand(T,dims))
+curand{T}(::Type{T}, dims::Int...) = CuArray(rand(T,dims))
 
 box{T}(a::CuArray{T}) = CUArray(Ptr{T}(a.ptr), box(size(a)))
