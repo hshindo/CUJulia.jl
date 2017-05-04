@@ -114,6 +114,8 @@ Base.reshape{T}(x::CuArray{T}, dims::Int...) = reshape(x, dims)
 
 curand{T}(::Type{T}, dims::NTuple) = CuArray(rand(T,dims))
 curand{T}(::Type{T}, dims::Int...) = CuArray(rand(T,dims))
+curand(dims::NTuple) = curand(Float64, dims)
+curand(dims::Int...) = curand(Float64, dims)
 
 @generated function Base.cat{T,N}(dim::Int, xs::CuArray{T,N}...)
     f = CuFunction("""
