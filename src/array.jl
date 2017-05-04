@@ -141,7 +141,7 @@ curand(dims::Int...) = curand(Float64, dims)
         end
 
         cumdim = split[end] + size(xs[end],dim)
-        dims = ntuple(i -> i == dim ? cumdim : size(xs[1],i))
+        dims = ntuple(i -> i == dim ? cumdim : size(xs[1],i), ndims(xs[1]))
         y = CuArray{T}(dims)
         $f(y, (y,y), dx=length(dy))
 
