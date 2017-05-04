@@ -114,3 +114,34 @@ Base.reshape{T}(x::CuArray{T}, dims::Int...) = reshape(x, dims)
 
 curand{T}(::Type{T}, dims::NTuple) = CuArray(rand(T,dims))
 curand{T}(::Type{T}, dims::Int...) = CuArray(rand(T,dims))
+
+@generated function Base.cat{T,N}(dim::Int, xs::CuArray{T,N}...)
+    f = CuFunction("""
+    __global__ void f(Array<$T,$N> y) {
+        int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
+        int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+        if (idx_x < y.length()) {
+            y[idx_x] = 3;
+        }
+    }
+    """)
+    quote
+        split = Array{Cint}(length(xs))
+        split[1] = 1
+        for i = 2:length(xs)
+            split[i] = split[i-1] + size(xs[i-1],dim)
+        end
+
+        cumdim = split[end] + size(xs[end],dim)
+        dims = ntuple(i -> i == dim ? cumdim : size(xs[1],i))
+        y = CuArray{T}(dims)
+        $f(y, dx=length(dy))
+
+        #x3ds = map(reshape3d, xs)
+        #p = Ptr{Void}(map(x -> Ptr{T}(reshape3d(x)), xs))
+        #$f(x3d, y3d, dx=size(x3d,1), dy=size(x3d,2), dz=size(x3d,3), bx=1, by=by, bz=1)
+
+        #p = Ptr{Void}[Ptr{T}(xs[i].ptr) for i=1:length(xs)]
+        #$f(p, dx=10)
+    end
+end
