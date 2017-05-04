@@ -28,7 +28,7 @@ function Base.pointer(x::CuSubArray, index::Int=1)
     pointer(x.parent, x.offset1+index)
 end
 
-function Base.view{T,N,I<:Tuple}(parent::CudaArray{T,N}, indexes::I)
+function Base.view{T,N,I<:Tuple}(parent::CuArray{T,N}, indexes::I)
     @assert N == length(indexes)
     n = N
     offset1 = 0
@@ -40,4 +40,4 @@ function Base.view{T,N,I<:Tuple}(parent::CudaArray{T,N}, indexes::I)
     end
     CuSubArray{T,n,I}(parent, indexes, offset1)
 end
-Base.view(parent::CudaArray, indexes::Union{UnitRange{Int},Colon,Int}...) = view(parent,indexes)
+Base.view(parent::CuArray, indexes::Union{UnitRange{Int},Colon,Int}...) = view(parent,indexes)

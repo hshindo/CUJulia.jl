@@ -70,8 +70,8 @@ public:
 
 immutable _CuArray{T,N}
     ptr::Ptr{T}
-    dims::Ntuple{N,Cint}
-    strides::Ntuple{N,Cint}
+    dims::NTuple{N,Cint}
+    strides::NTuple{N,Cint}
 end
 
 box{T}(x::CuArray{T}) = _CuArray(Ptr{T}(x), map(Cint,size(x)), map(Cint,strides(x)))

@@ -117,11 +117,17 @@ curand{T}(::Type{T}, dims::Int...) = CuArray(rand(T,dims))
 
 @generated function Base.cat{T,N}(dim::Int, xs::CuArray{T,N}...)
     f = CuFunction("""
-    __global__ void f(Array<$T,$N> y) {
+    __global__ void f(Array<$T,$N> y, Array<$T,$N> *xs) {
         int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
         int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
         if (idx_x < y.length()) {
-            y[idx_x] = 3;
+
+            //int subs[$N];
+            //getindex(subs);
+
+            //$T x = xs(subs);
+            //subs[] = cumdims[idx_y];
+            //y(subs) = x;
         }
     }
     """)
@@ -135,7 +141,7 @@ curand{T}(::Type{T}, dims::Int...) = CuArray(rand(T,dims))
         cumdim = split[end] + size(xs[end],dim)
         dims = ntuple(i -> i == dim ? cumdim : size(xs[1],i))
         y = CuArray{T}(dims)
-        $f(y, dx=length(dy))
+        $f(y, (y,y), dx=length(dy))
 
         #x3ds = map(reshape3d, xs)
         #p = Ptr{Void}(map(x -> Ptr{T}(reshape3d(x)), xs))
