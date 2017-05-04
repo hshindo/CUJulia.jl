@@ -1,3 +1,7 @@
+module Interop
+
+import ..CUJulia: CuArray, CuSubArray, box
+
 const array_h = """
 template<typename T, int N>
 struct Array {
@@ -72,3 +76,5 @@ end
 
 box{T}(x::CuArray{T}) = _CuArray(Ptr{T}(x), map(Cint,size(x)), map(Cint,strides(x)))
 box{T}(x::CuSubArray{T}) = _CuArray(Ptr{T}(x), map(Cint,size(x)), map(Cint,strides(x)))
+
+end

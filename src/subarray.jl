@@ -1,33 +1,29 @@
-export CudaSubArray
+export CuSubArray, CuSubVector, CuSubMatrix, CuSubVecOrMat
 
-immutable CudaSubArray{T,N,I}
-    parent::CudaArray{T}
+immutable CuSubArray{T,N,I}
+    parent::CuArray{T}
     indexes::I
     offset1::Int
 end
 
-typealias CudaSubVector{T} CudaSubArray{T,1}
-typealias CudaSubMatrix{T} CudaSubArray{T,2}
-typealias CudaSubVecOrMat{T} Union{CudaSubVector{T}, CudaSubMatrix{T}}
+#Base.Array(x::CuSubArray) = x.parent[x.indexes...]
+#Base.SubArray(x::CuSubArray) = view(Array(x.parent), x.indexes)
 
-Base.Array(x::CudaSubArray) = x.parent[x.indexes...]
-Base.SubArray(x::CudaSubArray) = view(Array(x.parent), x.indexes)
-
-function Base.size{T,N,I}(x::CudaSubArray{T,N,I}, dim::Int)
+function Base.size{T,N,I}(x::CuSubArray{T,N,I}, dim::Int)
     typeof(x.indexes[dim]) == Colon ? size(x.parent,dim) : length(x.indexes[dim])
 end
-Base.size{T}(x::CudaSubArray{T,1}) = (size(x,1),)
-Base.size{T}(x::CudaSubArray{T,2}) = (size(x,1),size(x,2))
-Base.size{T}(x::CudaSubArray{T,3}) = (size(x,1),size(x,2),size(x,3))
-Base.size{T}(x::CudaSubArray{T,4}) = (size(x,1),size(x,2),size(x,3),size(x,4))
+Base.size{T}(x::CuSubArray{T,1}) = (size(x,1),)
+Base.size{T}(x::CuSubArray{T,2}) = (size(x,1),size(x,2))
+Base.size{T}(x::CuSubArray{T,3}) = (size(x,1),size(x,2),size(x,3))
+Base.size{T}(x::CuSubArray{T,4}) = (size(x,1),size(x,2),size(x,3),size(x,4))
 
-Base.strides(x::CudaSubArray) = strides(x.parent)
-Base.stride(x::CudaSubArray, dim::Int) = stride(x.parent, dim)
+Base.strides(x::CuSubArray) = strides(x.parent)
+Base.stride(x::CuSubArray, dim::Int) = stride(x.parent, dim)
 
-Base.length(x::CudaSubArray) = prod(size(x))
-Base.similar{T,N}(x::CudaSubArray{T}, dims::NTuple{N,Int}) = CuArray{T}(dims)
+Base.length(x::CuSubArray) = prod(size(x))
+Base.similar{T,N}(x::CuSubArray{T}, dims::NTuple{N,Int}) = CuArray{T}(dims)
 
-function Base.pointer(x::CudaSubArray, index::Int=1)
+function Base.pointer(x::CuSubArray, index::Int=1)
     index == 1 || throw("Not implemented yet.")
     pointer(x.parent, x.offset1+index)
 end
@@ -42,8 +38,6 @@ function Base.view{T,N,I<:Tuple}(parent::CudaArray{T,N}, indexes::I)
         f = typeof(index) == Colon ? 0 : first(index)-1
         offset1 += f * stride(parent,i)
     end
-    CudaSubArray{T,n,I}(parent, indexes, offset1)
+    CuSubArray{T,n,I}(parent, indexes, offset1)
 end
 Base.view(parent::CudaArray, indexes::Union{UnitRange{Int},Colon,Int}...) = view(parent,indexes)
-
-box(x::CudaSubArray) = box(Interop.Array(x))

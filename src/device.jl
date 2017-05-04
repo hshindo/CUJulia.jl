@@ -1,4 +1,5 @@
 const contexts = Ptr{Void}[]
+
 function initctx()
     cuInit(0)
     for dev = 0:devcount()-1

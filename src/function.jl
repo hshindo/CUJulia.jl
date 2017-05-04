@@ -36,8 +36,8 @@ function CuFunction(code::String)
     code = replace(code, "Float32", "float")
     code = replace(code, "Float64", "double")
     code = replace(code, "Int32", "int")
-    contains(code, "Array<") && (code = "$array_h\n$code")
-    contains(code, "Ranges<") && (code = "$range_h\n$code")
+    contains(code, "Array<") && (code = "$(Interop.array_h)\n$code")
+    #contains(code, "Ranges<") && (code = "$range_h\n$code")
 
     ptx = NVRTC.compile(code)
     p = Ptr{Void}[0]
@@ -52,29 +52,6 @@ function CuFunction(code::String)
     end
     length(fnames) > 1 && throw("Multiple functions are found.")
     CuFunction(mod, fnames[1])
-end
-
-#=
-immutable Cint2
-    i1::Cint
-    i2::Cint
-end
-immutable Cint3
-    i1::Cint
-    i2::Cint
-    i3::Cint
-end
-immutable Cint4
-    i1::Cint
-    i2::Cint
-    i3::Cint
-    i4::Cint
-end
-=#
-
-immutable CUArray{T,N}
-    ptr::Ptr{T}
-    dims::N
 end
 
 box(x) = x

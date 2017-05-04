@@ -134,17 +134,6 @@ function find_f{T}(::Type{T}, v0::String, op::String)
     """)
 end
 
-function reshape3d(x::CuArray, dim::Int)
-    dim1, dim2, dim3 = 1, size(x,dim), 1
-    for i = 1:dim-1
-        dim1 *= size(x,i)
-    end
-    for i = dim+1:ndims(x)
-        dim3 *= size(x,i)
-    end
-    reshape(x, dim1, dim2, dim3)
-end
-
 #=
 function reducedim_f{T}(::Type{T}, op::String)
     blocksize = 1024

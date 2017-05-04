@@ -28,9 +28,6 @@ include("../lib/$(major)$(minor)/libcuda_types.jl")
 
 include("device.jl")
 include("function.jl")
-include("headers/array_h.jl")
-include("headers/range_h.jl")
-
 initctx()
 infodevices()
 
@@ -40,10 +37,12 @@ ctype(::Type{Float64}) = :double
 
 include("pointer.jl")
 include("array.jl")
-include("math.jl")
-include("broadcast.jl")
-include("reducedim.jl")
+include("subarray.jl")
+#include("math.jl")
+#include("broadcast.jl")
+#include("reducedim.jl")
 
+include("Interop.jl")
 include("NVRTC.jl")
 include("CUBLAS.jl")
 include("CUDNN.jl")
